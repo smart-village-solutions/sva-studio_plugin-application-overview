@@ -1,0 +1,6 @@
+{
+  "repository": "smart-village-solutions/sva-studio",
+  "studioCommit": "9a69ea637a2fcadfe0253d9ac834af84c3e8ecc0",
+  "status": "candidate",
+  "minimumContract": "application-workspace settings/header/content-only and public IconPicker; first supported candidate, no earlier released host supports this contract"
+}

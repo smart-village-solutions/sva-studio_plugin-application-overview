@@ -1,14 +1,53 @@
 /** Context-bound loading and optimistic concurrency without automatic write retries. */
-import { useCallback, useEffect, useRef, useState, useSyncExternalStore } from 'react';
-import { readSessionAccessSnapshot, subscribeSessionAccessSnapshot } from '@sva/plugin-sdk';
-import { readWorkspaceConfiguration, type WorkspaceConfiguration } from './contract.js';
-const endpoint = '/api/v1/plugins/application-workspace';
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+} from "react";
+import {
+  readSessionAccessSnapshot,
+  subscribeSessionAccessSnapshot,
+} from "@sva/plugin-sdk";
+import {
+  readWorkspaceConfiguration,
+  type WorkspaceConfiguration,
+} from "./contract.js";
+const endpoint = "/api/v1/plugins/application-workspace";
 export const useWorkspaceSession = () =>
   useSyncExternalStore(
     subscribeSessionAccessSnapshot,
     readSessionAccessSnapshot,
-    readSessionAccessSnapshot
+    readSessionAccessSnapshot,
   );
+const saveConfiguration = async (
+  configuration: WorkspaceConfiguration,
+  key: string,
+  current: { current: string },
+): Promise<WorkspaceConfiguration> => {
+  const response = await fetch(endpoint + "/settings", {
+    method: "PUT",
+    credentials: "include",
+    headers: {
+      "Content-Type": "application/json",
+      "X-Requested-With": "XMLHttpRequest",
+    },
+    body: JSON.stringify(configuration),
+  });
+  if (current.current !== key) throw Error("context_changed");
+  if (!response.ok)
+    throw Error(
+      response.status === 409
+        ? "conflict"
+        : response.status === 400
+          ? "invalid"
+          : "unknown",
+    );
+  const payload = (await response.json()) as { data?: unknown };
+  if (current.current !== key) throw Error("context_changed");
+  return readWorkspaceConfiguration(payload.data);
+};
 export const useWorkspace = (settings: boolean) => {
   const session = useWorkspaceSession();
   const key = JSON.stringify([
@@ -33,20 +72,22 @@ export const useWorkspace = (settings: boolean) => {
     if (
       !session.isResolved ||
       !session.instanceId ||
-      !session.assignedModules.includes('application-workspace')
+      !session.assignedModules.includes("application-workspace")
     ) {
       setState({ key, data: null, loading: false, error: true });
       return;
     }
     setState({ key, data: null, loading: true, error: false });
-    void fetch(endpoint + (settings ? '/settings' : ''), {
-      credentials: 'include',
+    void fetch(endpoint + (settings ? "/settings" : ""), {
+      credentials: "include",
       signal: controller.signal,
     })
       .then(async (response) => {
-        if (!response.ok) throw Error('load_failed');
+        if (!response.ok) throw Error("load_failed");
         const payload: unknown = await response.json();
-        const data = readWorkspaceConfiguration((payload as { data?: unknown }).data);
+        const data = readWorkspaceConfiguration(
+          (payload as { data?: unknown }).data,
+        );
         if (current.current === key && !controller.signal.aborted)
           setState({ key, data, loading: false, error: false });
       })
@@ -57,23 +98,9 @@ export const useWorkspace = (settings: boolean) => {
     return () => controller.abort();
   }, [key, settings, retry]);
   const save = useCallback(
-    async (configuration: WorkspaceConfiguration) => {
-      const response = await fetch(endpoint + '/settings', {
-        method: 'PUT',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
-        body: JSON.stringify(configuration),
-      });
-      if (current.current !== key) throw Error('context_changed');
-      if (!response.ok)
-        throw Error(
-          response.status === 409 ? 'conflict' : response.status === 400 ? 'invalid' : 'unknown'
-        );
-      const payload = (await response.json()) as { data?: unknown };
-      if (current.current !== key) throw Error('context_changed');
-      return readWorkspaceConfiguration(payload.data);
-    },
-    [key]
+    (configuration: WorkspaceConfiguration) =>
+      saveConfiguration(configuration, key, current),
+    [key],
   );
   const reload = () => setRetry((n) => n + 1);
   return {
