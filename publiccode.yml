@@ -1,5 +1,6 @@
 publiccodeYmlVersion: '0'
 name: Anwendungen
+url: https://github.com/smart-village-solutions/sva-studio_plugin-application-overview
 platforms: [web]
 developmentStatus: development
 softwareType: addon

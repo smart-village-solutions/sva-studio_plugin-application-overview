@@ -58,4 +58,4 @@ Das Manifest verweist auf `dist/descriptor.js`, `dist/index.js` und `dist/server
 - Konkurrierende Änderungen werden durch Versionsprüfung abgewiesen. Bei unklarem Speicherergebnis wird der gespeicherte Stand nachgelesen und keine Mutation automatisch wiederholt.
 - Deaktivierung löscht keine Kacheln. SSO setzt eine eigene OIDC-/SAML-Anbindung der Zielsysteme an einen gemeinsamen Identity Provider voraus; gleiche IP-Adressen bewirken keine gemeinsame Anmeldung.
 
-Das lokale Repository hat noch kein Remote. Deshalb enthält die lokale Modulmetadatei keine erfundene Repository-URL; diese wird erst mit einer ausdrücklich beauftragten Remote-Veröffentlichung festgelegt. Keine Veröffentlichung, Aktivierung oder Migration wird durch den Paket-Build ausgeführt.
+Quellcode: [https://github.com/smart-village-solutions/sva-studio_plugin-application-overview](https://github.com/smart-village-solutions/sva-studio_plugin-application-overview). Eine Veröffentlichung des NPM-Pakets, Aktivierung oder Migration wird durch den Paket-Build nicht ausgeführt.
