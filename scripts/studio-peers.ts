@@ -124,7 +124,7 @@ export const preparePeers = (
   ) as Record<string, string>;
   const overrides = Object.fromEntries(
     Object.entries(studioOverrides).filter(([name]) =>
-      name.startsWith("@tiptap/"),
+      name.startsWith("@tiptap/") || name === "postcss",
     ),
   );
   const manifest = { studioCommit, packages, overrides };

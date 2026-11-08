@@ -129,7 +129,7 @@ for (const width of [1440, 390]) {
     await page
       .getByRole("button", { name: "Switch language", exact: true })
       .click();
-    await page.getByRole("menuitem", { name: /^Deutsch/ }).click();
+    await page.getByRole("menuitem", { name: /^German/ }).click();
     await page.goto("/plugins/application-workspace/settings");
     await expect(page.getByLabel("Name", { exact: true })).toHaveValue(
       "Kalender",

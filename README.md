@@ -48,7 +48,7 @@ pnpm test:coverage
 node scripts/studio-peers.ts restore
 ```
 
-Der Installationsschritt ergänzt ausschließlich für den lokalen Consumer temporäre Peer-Dateiverweise. `restore` stellt Paketmanifest, Workspace-Konfiguration und Lockfile bytegleich wieder her; diese temporären Verweise gehören nicht in Commits oder Pakete. Die Peer-Artefakte und ihre Digests liegen unter dem ignorierten `.artifacts/`. Die identifizierten Tiptap-Auflösungsregeln des SDK-/UI-Produzenten werden für dessen öffentlichen Consumer übernommen, um dessen vorhandene Peer-Verträge konsistent zu installieren.
+Der Installationsschritt ergänzt ausschließlich für den lokalen Consumer temporäre Peer-Dateiverweise. `restore` stellt Paketmanifest, Workspace-Konfiguration und Lockfile bytegleich wieder her; diese temporären Verweise gehören nicht in Commits oder Pakete. Die Peer-Artefakte und ihre Digests liegen unter dem ignorierten `.artifacts/`. Die identifizierten Tiptap-/PostCSS-Auflösungsregeln des SDK-/UI-Produzenten werden für dessen öffentlichen Consumer übernommen, um dessen vorhandene Peer-Verträge konsistent zu installieren.
 
 Für einen **sauberen, committeten** Plugin-Kandidaten nach den Tests:
 
