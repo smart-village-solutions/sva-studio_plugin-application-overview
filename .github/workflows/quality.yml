@@ -64,9 +64,11 @@ jobs:
         with:
           version: 11.3.0
           run_install: false
+          cache: false
       - uses: actions/setup-node@v6
         with:
           node-version: 24.15.0
+          package-manager-cache: false
       - name: Install identified Studio toolchain
         working-directory: studio
         run: pnpm install --frozen-lockfile
@@ -173,9 +175,11 @@ jobs:
         with:
           version: 11.3.0
           run_install: false
+          cache: false
       - uses: actions/setup-node@v6
         with:
           node-version: 24.15.0
+          package-manager-cache: false
       - uses: actions/download-artifact@v8
         with:
           name: plugin-candidate
