@@ -199,12 +199,13 @@ describe('application workspace UI', () => {
     const config = JSON.parse(String(saved?.[1]?.body));
     expect(config.tiles.map((entry: { id: string }) => entry.id)).toEqual(['two', 'one']);
     expect(config.tiles[1].texts.en.name).toBe('Calendar');
-    fireEvent.click(
-      screen.getAllByRole('button', { name: 'Anwendung entfernen' })[0] as HTMLElement
-    );
+    const deleteTrigger = screen.getAllByRole('button', { name: 'Anwendung entfernen' })[0] as HTMLElement;
+    deleteTrigger.focus();
+    fireEvent.click(deleteTrigger);
     const dialog = screen.getByRole('alertdialog');
     fireEvent.click(within(dialog).getByRole('button', { name: 'Abbrechen' }));
     expect(screen.getByDisplayValue('Zweite Anwendung')).toBeTruthy();
+    await waitFor(() => expect(document.activeElement).toBe(deleteTrigger));
     fireEvent.click(
       screen.getAllByRole('button', { name: 'Anwendung entfernen' })[0] as HTMLElement
     );
@@ -241,6 +242,48 @@ describe('application workspace UI', () => {
     await screen.findByRole('alert');
     expect(screen.getByLabelText('Zieladresse (HTTPS)').getAttribute('aria-invalid')).toBe('true');
     expect(fetcher).toHaveBeenCalledTimes(1);
+  });
+  it('keeps a server-rejected draft editable and permits an explicit corrected save', async () => {
+    let attempts = 0;
+    vi.stubGlobal('fetch', vi.fn(async (_url: unknown, init?: RequestInit) => {
+      if (init?.method === 'PUT') {
+        attempts += 1;
+        return attempts === 1 ? Response.json({ error: 'invalid_configuration' }, { status: 400 }) : Response.json({ data: { ...JSON.parse(String(init.body)), version: 2 } });
+      }
+      return Response.json({ data: { version: 1, tiles: [tile] } });
+    }));
+    render(<WorkspaceSettingsPage />);
+    await screen.findByDisplayValue('Kalender');
+    const save = screen.getByRole('button', { name: 'Änderungen speichern' }) as HTMLButtonElement;
+    fireEvent.click(save);
+    await screen.findByRole('alert');
+    expect(save.disabled).toBe(false);
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Korrigiert' } });
+    fireEvent.click(save);
+    await screen.findByText('Änderungen gespeichert.');
+    expect(attempts).toBe(2);
+  });
+  it('does not repeat a write when readback fails, then unlocks an unchanged stored revision', async () => {
+    let reads = 0;
+    const fetcher = vi.fn(async (_url: unknown, init?: RequestInit) => {
+      if (init?.method === 'PUT') throw Error('offline');
+      reads += 1;
+      return reads === 2 ? Response.json({}, { status: 503 }) : Response.json({ data: { version: 1, tiles: [tile] } });
+    });
+    vi.stubGlobal('fetch', fetcher);
+    render(<WorkspaceSettingsPage />);
+    await screen.findByDisplayValue('Kalender');
+    fireEvent.change(screen.getByLabelText('Name'), { target: { value: 'Ungespeichert' } });
+    const save = screen.getByRole('button', { name: 'Änderungen speichern' }) as HTMLButtonElement;
+    fireEvent.click(save);
+    await screen.findByRole('alert');
+    fireEvent.click(screen.getByRole('button', { name: 'Gespeicherten Stand prüfen' }));
+    await waitFor(() => expect((screen.getByRole('button', { name: 'Gespeicherten Stand prüfen' }) as HTMLButtonElement).disabled).toBe(false));
+    expect(save.disabled).toBe(true);
+    fireEvent.click(screen.getByRole('button', { name: 'Gespeicherten Stand prüfen' }));
+    await waitFor(() => expect(save.disabled).toBe(false));
+    expect(screen.getByDisplayValue('Ungespeichert')).toBeTruthy();
+    expect(fetcher.mock.calls.filter((call) => call[1]?.method === 'PUT')).toHaveLength(1);
   });
   it('keeps every localized UI key in both shipped languages', async () => {
     const de = workspaceTranslations.de['application-workspace'];

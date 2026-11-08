@@ -1,0 +1,11 @@
+{
+  "referenceCommit": "66e3e9ba51c2b8a2410d09f3603d9927e87821ef",
+  "projects": {
+    "@sva/plugin-application-workspace": {
+      "lines": 94.73,
+      "statements": 91.46,
+      "functions": 92.72,
+      "branches": 86.63
+    }
+  }
+}

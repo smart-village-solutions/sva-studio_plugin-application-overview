@@ -1,0 +1,278 @@
+name: Plugin Quality
+on:
+  workflow_call:
+    inputs:
+      studio-ref:
+        type: string
+        required: true
+      plugin-ref:
+        type: string
+        required: true
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+concurrency:
+  group: plugin-quality-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    name: Plugin Quality
+    outputs:
+      studio-ref: ${{ steps.contract.outputs.studio }}
+      plugin-ref: ${{ steps.contract.outputs.plugin }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    defaults:
+      run:
+        working-directory: plugin
+    env:
+      pnpm_config_verify_deps_before_run: never
+      NX_NO_CLOUD: "true"
+      PLUGIN_BASE: ${{ github.event.pull_request.base.sha || github.event.before }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: smart-village-solutions/sva-studio_plugin-application-overview
+          path: plugin
+          ref: ${{ inputs.plugin-ref || github.event.pull_request.head.sha || github.sha }}
+          fetch-depth: 0
+          persist-credentials: false
+      - id: contract
+        env:
+          REQUESTED_STUDIO_REF: ${{ inputs.studio-ref }}
+          REQUESTED_PLUGIN_REF: ${{ inputs.plugin-ref }}
+        run: |
+          node --input-type=module <<'JS'
+          import fs from 'node:fs';
+          import { execFileSync } from 'node:child_process';
+          const c = JSON.parse(fs.readFileSync('config/studio-compatibility.json', 'utf8'));
+          const studio = process.env.REQUESTED_STUDIO_REF || c.studioCommit;
+          const plugin = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim();
+          if (!/^[a-f0-9]{40}$/.test(studio) || (process.env.REQUESTED_PLUGIN_REF && process.env.REQUESTED_PLUGIN_REF !== plugin)) throw Error('fixed_commit_inputs_required');
+          fs.appendFileSync(process.env.GITHUB_OUTPUT, `studio=${studio}\nplugin=${plugin}\n`);
+          JS
+      - uses: actions/checkout@v7
+        with:
+          repository: smart-village-solutions/sva-studio
+          ref: ${{ steps.contract.outputs.studio }}
+          path: studio
+          persist-credentials: false
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 11.3.0
+          run_install: false
+          cache: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+      - name: Install identified Studio toolchain
+        working-directory: studio
+        run: pnpm install --frozen-lockfile
+      - name: Build and identify public peer artifacts
+        run: node scripts/studio-peers.ts prepare "$GITHUB_WORKSPACE/studio" "$RUNNER_TEMP/studio-peers"
+      - name: Install locked plugin toolchain and explicit public peers
+        run: |
+          pnpm install --frozen-lockfile
+          node scripts/studio-peers.ts install "$RUNNER_TEMP/studio-peers"
+      - name: Lint, types and behavioral coverage
+        run: |
+          pnpm lint
+          pnpm typecheck
+          pnpm test:coverage
+          pnpm audit --audit-level=moderate
+      - name: Studio boundaries and complexity
+        working-directory: studio
+        run: |
+          pnpm exec tsx scripts/ci/check-plugin-architecture-boundary.ts --plugin-root="$GITHUB_WORKSPACE/plugin" --review-baseline="$GITHUB_WORKSPACE/plugin/config/plugin-architecture-review.md"
+          pnpm exec tsx scripts/ci/check-plugin-ui-boundary.ts --plugin-root="$GITHUB_WORKSPACE/plugin"
+          pnpm complexity-gate --plugin-root "$GITHUB_WORKSPACE/plugin"
+      - name: Resolve reviewed baseline and real diff base
+        run: |
+          if ! [[ "$PLUGIN_BASE" =~ ^[a-f0-9]{40}$ ]] || ! git cat-file -e "$PLUGIN_BASE^{commit}" 2>/dev/null; then
+            PLUGIN_BASE=$(git rev-parse origin/main)
+          fi
+          echo "PLUGIN_BASE=$PLUGIN_BASE" >> "$GITHUB_ENV"
+          if git cat-file -e "$PLUGIN_BASE:config/coverage-baseline.json" 2>/dev/null; then
+            git show "$PLUGIN_BASE:config/coverage-baseline.json" > "$RUNNER_TEMP/plugin-baseline.json"
+          else
+            cp config/coverage-baseline.json "$RUNNER_TEMP/plugin-baseline.json"
+          fi
+      - name: Shared floors, regression and new code
+        working-directory: studio
+        env:
+          COVERAGE_GATE_REQUIRE_SUMMARIES: "1"
+          COVERAGE_GATE_EVALUATE_REGRESSIONS: "1"
+        run: |
+          pnpm coverage-gate --plugin-root="$GITHUB_WORKSPACE/plugin" --baseline-file="$RUNNER_TEMP/plugin-baseline.json"
+          pnpm sonar-new-code-gate --root="$GITHUB_WORKSPACE/plugin" --policy-root="$GITHUB_WORKSPACE/studio" --external-plugin --base="$PLUGIN_BASE" --head="$(git -C "$GITHUB_WORKSPACE/plugin" rev-parse HEAD)"
+      - name: Pack once and test exact package in a clean consumer
+        run: |
+          node scripts/studio-peers.ts restore
+          pnpm pack --pack-destination .artifacts/candidate
+          cp -R "$RUNNER_TEMP/studio-peers" .artifacts/peers
+          node scripts/package-consumer.ts .artifacts/candidate/sva-plugin-application-workspace-0.0.1.tgz "$RUNNER_TEMP/studio-peers" .artifacts/evidence
+      - uses: actions/upload-artifact@v7
+        with:
+          name: plugin-candidate
+          if-no-files-found: error
+          path: |
+            plugin/.artifacts/candidate/*.tgz
+            plugin/.artifacts/evidence/
+            plugin/.artifacts/peers/
+
+      - uses: actions/upload-artifact@v7
+        with:
+          name: plugin-coverage
+          path: plugin/coverage/
+          if-no-files-found: error
+  host:
+    name: Studio Compatibility
+    needs: quality
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    services:
+      postgres:
+        image: postgres:17-alpine
+        env:
+          POSTGRES_PASSWORD: plugin-qa-ci-only
+          POSTGRES_DB: plugin_qa_test
+        ports: ["5432:5432"]
+        options: --health-cmd "pg_isready -U postgres" --health-interval 5s --health-timeout 5s --health-retries 12
+      redis:
+        image: redis:7-alpine
+        ports: ["6379:6379"]
+        options: --health-cmd "redis-cli ping" --health-interval 5s --health-timeout 3s --health-retries 12
+    env:
+      pnpm_config_verify_deps_before_run: never
+      NX_NO_CLOUD: "true"
+      APPLICATION_WORKSPACE_TEST_DATABASE_URL: postgresql://postgres:plugin-qa-ci-only@localhost:5432/plugin_qa_test
+      IAM_DATABASE_URL: postgresql://postgres:plugin-qa-ci-only@localhost:5432/plugin_qa_test
+      REDIS_URL: redis://localhost:6379
+      ENCRYPTION_KEY: "0000000000000000000000000000000000000000000000000000000000000000"
+      SVA_AUTH_CLIENT_SECRET: plugin-qa-ci-only
+      SVA_AUTH_ISSUER: https://identity.qa.test/realms/qa
+      SVA_AUTH_CLIENT_ID: studio
+      SVA_AUTH_REDIRECT_URI: https://workspace.qa.test/auth/callback
+      SVA_AUTH_POST_LOGOUT_REDIRECT_URI: https://workspace.qa.test/
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          repository: smart-village-solutions/sva-studio_plugin-application-overview
+          path: plugin
+          ref: ${{ needs.quality.outputs.plugin-ref }}
+          persist-credentials: false
+      - uses: actions/checkout@v7
+        with:
+          repository: smart-village-solutions/sva-studio
+          ref: ${{ needs.quality.outputs.studio-ref }}
+          path: studio
+          persist-credentials: false
+      - uses: pnpm/action-setup@v5
+        with:
+          version: 11.3.0
+          run_install: false
+          cache: false
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 24.15.0
+          package-manager-cache: false
+      - uses: actions/download-artifact@v8
+        with:
+          name: plugin-candidate
+          path: plugin/.artifacts
+      - name: Install host and locked browser test tools
+        run: |
+          pnpm --dir studio install --frozen-lockfile
+          pnpm --dir plugin install --frozen-lockfile
+          cd plugin
+          pnpm exec playwright install --with-deps chromium
+      - name: Prepare disposable host schema
+        env:
+          PGPASSWORD: plugin-qa-ci-only
+        run: |
+          psql -h localhost -U postgres -d plugin_qa_test -v ON_ERROR_STOP=1 -c 'CREATE ROLE iam_app NOLOGIN; CREATE ROLE iam_observability NOLOGIN;'
+          sed '/^\\/d' studio/docs/development/studio-db-schema-final.sql | psql -h localhost -U postgres -d plugin_qa_test -v ON_ERROR_STOP=1
+          psql -h localhost -U postgres -d plugin_qa_test -v ON_ERROR_STOP=1 -c 'GRANT USAGE ON SCHEMA iam TO iam_app; GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA iam TO iam_app; GRANT USAGE, SELECT ON ALL SEQUENCES IN SCHEMA iam TO iam_app;'
+      - name: Install exact tested plugin package
+        working-directory: plugin
+        run: node scripts/host-candidate.ts install "$GITHUB_WORKSPACE/studio" .artifacts
+      - name: Real host session, API and database invariants
+        working-directory: studio
+        run: |
+          pnpm nx run data-repositories:test:integration --testFiles=src/application-workspace.postgres.integration.test.ts --parallel=1
+          pnpm nx run sva-studio-react:test:unit:server --testFiles=src/lib/application-workspace.postgres.integration.test.ts --parallel=1
+      - name: Actual host UI, keyboard and accessibility
+        working-directory: plugin
+        env:
+          STUDIO_REPO: ${{ github.workspace }}/studio
+        run: pnpm exec playwright test
+      - name: Remove optional package and build host without it
+        run: |
+          cd plugin
+          node scripts/host-candidate.ts remove "$GITHUB_WORKSPACE/studio"
+          cd ../studio
+          pnpm nx run sva-studio-react:build --parallel=1
+          pnpm verify:runtime-artifact
+      - uses: actions/upload-artifact@v7
+        if: always()
+        with:
+          name: host-compatibility-evidence
+          path: |
+            plugin/.artifacts/evidence/
+            plugin/.artifacts/browser/
+            plugin/.artifacts/playwright-report/
+          if-no-files-found: error
+  analysis:
+    name: External Analysis
+    needs: quality
+    if: github.repository == 'smart-village-solutions/sva-studio_plugin-application-overview'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ needs.quality.outputs.plugin-ref }}
+          path: plugin
+          persist-credentials: false
+          fetch-depth: 0
+      - uses: actions/download-artifact@v8
+        with:
+          name: plugin-coverage
+          path: plugin/coverage
+      - name: Upload identified coverage to Codecov
+        uses: codecov/codecov-action@v7
+        with:
+          use_oidc: true
+          files: plugin/coverage/lcov.info
+          disable_search: true
+          fail_ci_if_error: true
+          flags: unittests
+          override_commit: ${{ needs.quality.outputs.plugin-ref }}
+      - name: Prepare trusted scanner settings
+        run: |
+          cat > "$RUNNER_TEMP/plugin-sonar.properties" <<'PROPERTIES'
+          sonar.projectKey=smart-village-app_sva-studio_plugin-application-overview
+          sonar.organization=smart-village-app
+          sonar.sources=src
+          sonar.tests=src,scripts,e2e
+          sonar.test.inclusions=**/*.test.ts,**/*.test.tsx,e2e/**/*.ts
+          sonar.exclusions=**/*.test.ts,**/*.test.tsx
+          sonar.javascript.lcov.reportPaths=coverage/lcov.info
+          sonar.qualitygate.wait=true
+          sonar.qualitygate.timeout=600
+          PROPERTIES
+      - name: SonarCloud analysis and quality gate
+        uses: SonarSource/sonarqube-scan-action@v7
+        with:
+          projectBaseDir: plugin
+          args: >-
+            -Dproject.settings=${{ runner.temp }}/plugin-sonar.properties
+            -Dsonar.host.url=https://sonarcloud.io
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
