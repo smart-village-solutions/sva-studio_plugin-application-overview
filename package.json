@@ -1,0 +1,64 @@
+{
+  "name": "@sva/plugin-application-workspace",
+  "version": "0.0.1",
+  "license": "EUPL-1.2",
+  "type": "module",
+  "files": [
+    "dist",
+    "plugin.manifest.json",
+    "publiccode.yml",
+    "README.md",
+    "LICENSE"
+  ],
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "default": "./dist/index.js"
+    },
+    "./server": {
+      "types": "./dist/server.d.ts",
+      "default": "./dist/server.js"
+    },
+    "./contract": {
+      "types": "./dist/contract.d.ts",
+      "default": "./dist/contract.js"
+    },
+    "./plugin.manifest.json": {
+      "default": "./plugin.manifest.json"
+    }
+  },
+  "dependencies": {
+    "@tabler/icons-react": "3.46.0"
+  },
+  "peerDependencies": {
+    "@sva/plugin-sdk": "^0.0.1",
+    "@sva/studio-ui-react": "^0.0.1",
+    "react": "^19.3.0"
+  },
+  "devDependencies": {
+    "@testing-library/react": "16.3.2",
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitest/coverage-v8": "5.1.0",
+    "happy-dom": "21.0.4",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "typescript": "6.0.3",
+    "vitest": "5.1.0",
+    "@testing-library/dom": "10.4.1"
+  },
+  "description": "Instanzbezogener kommunaler Anwendungsarbeitsplatz als externes SVA-Studio-Plugin",
+  "scripts": {
+    "build": "tsc -p tsconfig.json",
+    "typecheck": "tsc -p tsconfig.json --noEmit",
+    "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "prepack": "pnpm build"
+  },
+  "packageManager": "pnpm@11.3.0",
+  "engines": {
+    "node": ">=24.15.0"
+  }
+}

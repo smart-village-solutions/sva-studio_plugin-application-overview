@@ -1,0 +1,41 @@
+publiccodeYmlVersion: '0'
+name: Anwendungen
+platforms: [web]
+developmentStatus: development
+softwareType: addon
+description:
+  de:
+    localisedName: Anwendungen
+    shortDescription: Kommunale Web-Anwendungen über einen gemeinsamen Arbeitsplatz öffnen.
+    longDescription: >-
+      Das optionale Plugin ergänzt die Kopfzeile um eine Kachelübersicht ohne Seitenleiste.
+      Berechtigte Benutzer verwalten Ziele, Tabler-Icons, Reihenfolge und mehrsprachige Texte
+      in den Plugin-Einstellungen. SVA Studio steht immer an erster Stelle.
+      Anmeldung und Rechte der verlinkten Anwendungen bleiben deren Verantwortung.
+    features:
+      - Gemeinsamer Anwendungsarbeitsplatz
+      - Mehrsprachige Kacheln und Tabler-Icon-Auswahl
+      - Berechtigte instanzbezogene Konfiguration
+  en:
+    localisedName: Applications
+    shortDescription: Open municipal web applications from a shared workspace.
+    longDescription: >-
+      This optional plugin adds an application launcher without a sidebar.
+      Authorized users manage destinations, Tabler icons, order and translated texts.
+      SVA Studio always appears first. Target applications retain their own authentication.
+    features:
+      - Shared application workspace
+      - Multilingual tiles and Tabler icon picker
+      - Authorized tenant-specific configuration
+legal:
+  license: EUPL-1.2
+  mainCopyrightOwner: Smart Village Solutions SVS GmbH
+maintenance:
+  type: community
+  contacts:
+    - name: Philipp Wilimzig
+      affiliation: Smart Village Solutions SVS GmbH
+      email: operations@smart-village.app
+localisation:
+  localisationReady: true
+  availableLanguages: [de, en]

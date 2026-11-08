@@ -1,0 +1,3 @@
+autoInstallPeers: false
+overrides:
+  ast-v8-to-istanbul: 1.0.0
