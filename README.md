@@ -57,10 +57,12 @@ pnpm pack --pack-destination .artifacts/candidate
 node scripts/package-consumer.ts .artifacts/candidate/sva-plugin-application-workspace-0.0.1.tgz .artifacts/peers .artifacts/evidence
 node scripts/host-candidate.ts install "$STUDIO_REPO" .artifacts
 STUDIO_REPO="$STUDIO_REPO" pnpm test:e2e
-node scripts/host-candidate.ts remove "$STUDIO_REPO"
+node scripts/host-candidate.ts uninstall "$STUDIO_REPO"
+# Studio ohne Plugin bauen und prüfen; anschließend Metadaten wiederherstellen:
+node scripts/host-candidate.ts restore "$STUDIO_REPO"
 ```
 
-Der Host-Installer verändert nur die temporäre direkte App-Dependency, den Katalog und das Lockfile im ausdrücklich gewählten Test-Checkout. `remove` stellt diese drei Dateien wieder her und entfernt die installierte App-Verknüpfung. Ein produktiver Checkout ist dafür nicht vorgesehen. Die CI richtet außerdem die disposable Datenbank ein und führt die realen Server-/Datenprüfungen aus. Lokale Läufe werden nicht als entfernte Merge-Nachweise dargestellt.
+Der Host-Installer verändert nur die temporäre direkte App-Dependency, den Katalog und das Lockfile im ausdrücklich gewählten Test-Checkout. Eine bereits installierte Version wird für den Test durch den identifizierten Kandidaten ersetzt. `uninstall` entfernt Dependency und Katalogeintrag für den anschließenden Build ohne Plugin. `restore` stellt die drei ursprünglichen Dateien bytegleich wieder her; ein erneutes `pnpm install --frozen-lockfile` stellt danach die ursprünglichen Verknüpfungen her. Ein produktiver Checkout ist dafür nicht vorgesehen. Die CI richtet außerdem die disposable Datenbank ein und führt die realen Server-/Datenprüfungen aus. Lokale Läufe werden nicht als entfernte Merge-Nachweise dargestellt.
 
 ## Paket und Studio-Einbindung
 

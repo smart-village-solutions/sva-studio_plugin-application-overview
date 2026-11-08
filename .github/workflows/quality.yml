@@ -212,10 +212,14 @@ jobs:
       - name: Remove optional package and build host without it
         run: |
           cd plugin
-          node scripts/host-candidate.ts remove "$GITHUB_WORKSPACE/studio"
+          node scripts/host-candidate.ts uninstall "$GITHUB_WORKSPACE/studio"
           cd ../studio
           pnpm nx run sva-studio-react:build --parallel=1
           pnpm verify:runtime-artifact
+      - name: Restore host source metadata
+        if: always()
+        working-directory: plugin
+        run: node scripts/host-candidate.ts restore "$GITHUB_WORKSPACE/studio"
       - uses: actions/upload-artifact@v7
         if: always()
         with:
