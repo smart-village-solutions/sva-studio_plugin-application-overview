@@ -1,7 +1,7 @@
 /** Install only the attested candidate through Studio's normal package/catalog path. */
 import { execFileSync } from "node:child_process";
 import { createHash } from "node:crypto";
-import { readFileSync, writeFileSync, mkdirSync, rmSync } from "node:fs";
+import { readFileSync, writeFileSync, mkdirSync, rmSync, existsSync } from "node:fs";
 import path from "node:path";
 const [command, studioArgument, artifactArgument] = process.argv.slice(2);
 if (!studioArgument) throw Error("studio_checkout_required");
@@ -47,11 +47,9 @@ if (command === "install" && artifactArgument) {
   )
     throw Error("clean_committed_host_required");
   const catalogPath = path.join(studio, files[1]!);
-  const catalog = JSON.parse(readFileSync(catalogPath, "utf8")) as {
+  const catalog = (JSON.parse(readFileSync(catalogPath, "utf8")) as {
     pluginId: string;
-  }[];
-  if (catalog.some((entry) => entry.pluginId === "application-workspace"))
-    throw Error("optional_plugin_must_not_be_preinstalled");
+  }[]).filter((entry) => entry.pluginId !== "application-workspace");
   mkdirSync(backup, { recursive: true });
   writeFileSync(
     path.join(backup, "identity.json"),
@@ -76,8 +74,9 @@ if (command === "install" && artifactArgument) {
     distribution: "studio",
   } as (typeof catalog)[number]);
   writeFileSync(catalogPath, JSON.stringify(catalog, null, 2) + "\n");
-} else if (command === "remove") {
+} else if (command === "uninstall" || command === "restore") {
   const identityFile = path.join(backup, "identity.json");
+  if (command === "restore" && !existsSync(identityFile)) process.exit(0);
   const identity = JSON.parse(readFileSync(identityFile, "utf8")) as {
     root: string;
     commit: string;
@@ -90,21 +89,25 @@ if (command === "install" && artifactArgument) {
     }).trim() !== identity.commit
   )
     throw Error("host_restore_identity_changed");
-  files.forEach((file, index) =>
-    writeFileSync(
-      path.join(studio, file),
-      readFileSync(path.join(backup, String(index))),
-    ),
-  );
-  rmSync(identityFile);
-  rmSync(
-    path.join(
-      studio,
-      "apps/sva-studio-react/node_modules/@sva/plugin-application-workspace",
-    ),
-    { force: true, recursive: true },
-  );
+  if (command === "uninstall") {
+    execFileSync("pnpm", ["--filter", "sva-studio-react", "remove", "@sva/plugin-application-workspace"], {
+      cwd: studio,
+      stdio: "inherit",
+      env: { ...process.env, pnpm_config_verify_deps_before_run: "never" },
+    });
+    const catalogPath = path.join(studio, files[1]!);
+    const catalog = JSON.parse(readFileSync(catalogPath, "utf8")) as { pluginId: string }[];
+    writeFileSync(catalogPath, JSON.stringify(catalog.filter((entry) => entry.pluginId !== "application-workspace"), null, 2) + "\n");
+  } else {
+    files.forEach((file, index) =>
+      writeFileSync(
+        path.join(studio, file),
+        readFileSync(path.join(backup, String(index))),
+      ),
+    );
+    rmSync(identityFile);
+  }
 } else
   throw Error(
-    "usage: host-candidate.ts install STUDIO ARTIFACT_DIRECTORY | remove STUDIO",
+    "usage: host-candidate.ts install STUDIO ARTIFACT_DIRECTORY | uninstall STUDIO | restore STUDIO",
   );
