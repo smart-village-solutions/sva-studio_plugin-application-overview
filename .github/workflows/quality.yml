@@ -188,7 +188,8 @@ jobs:
           pnpm --dir studio install --frozen-lockfile
           pnpm --dir plugin install --frozen-lockfile
           cd plugin
-          pnpm exec playwright install --with-deps chromium
+          # Use the runner's existing system libraries; the browser tests below still fail if any are missing.
+          pnpm exec playwright install chromium
       - name: Prepare disposable host schema
         env:
           PGPASSWORD: plugin-qa-ci-only
