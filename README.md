@@ -64,6 +64,8 @@ node scripts/host-candidate.ts restore "$STUDIO_REPO"
 
 Der Host-Installer verändert nur die temporäre direkte App-Dependency, den Katalog und das Lockfile im ausdrücklich gewählten Test-Checkout. Eine bereits installierte Version wird für den Test durch den identifizierten Kandidaten ersetzt. `uninstall` entfernt Dependency und Katalogeintrag für den anschließenden Build ohne Plugin. `restore` stellt die drei ursprünglichen Dateien bytegleich wieder her; ein erneutes `pnpm install --frozen-lockfile` stellt danach die ursprünglichen Verknüpfungen her. Ein produktiver Checkout ist dafür nicht vorgesehen. Die CI richtet außerdem die disposable Datenbank ein und führt die realen Server-/Datenprüfungen aus. Lokale Läufe werden nicht als entfernte Merge-Nachweise dargestellt.
 
+Die Host-CI installiert die zur gesperrten Playwright-Version gehörende Chromium-Version mit `playwright install chromium` und verwendet die Systembibliotheken des GitHub-Runners. Damit entfällt eine zusätzliche APT-Installation während jedes Testlaufs. Die realen Browser-, Tastatur- und Accessibility-Tests bleiben verpflichtend; fehlende Systembibliotheken oder ein fehlgeschlagener Browserstart lassen den Lauf weiterhin fehlschlagen.
+
 ## Paket und Studio-Einbindung
 
 ```sh
