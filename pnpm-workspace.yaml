@@ -1,11 +1,10 @@
-autoInstallPeers: false
-overrides:
-  ast-v8-to-istanbul: "1.0.0"
-  minimatch: "11.0.1"
-auditConfig:
-  # Nachverfolgung: https://github.com/smart-village-solutions/sva-studio/issues/2225
-  # Übergangsausnahme vom 18.11.2026; erneute Prüfung am 25.11.2026.
-  # picomatch kommt über Vite/Vitest/TypeScript-ESLint; kein Glob-Matching im Plugin-Code.
-  # Nach geprüftem Update aller betroffenen Pfade auf >=4.0.8 entfernen.
-  ignoreGhsas:
-    - GHSA-fc5q-39xc-vjpf
+{
+  "autoInstallPeers": false,
+  "overrides": {
+    "ast-v8-to-istanbul": "1.0.0",
+    "minimatch": "11.0.1"
+  },
+  "auditConfig": {
+    "ignoreGhsas": ["GHSA-fc5q-39xc-vjpf"]
+  }
+}
