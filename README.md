@@ -32,6 +32,10 @@ Die Jobs für Tests und Host-Integration besitzen keine Analyse-/Release-Secrets
 
 Vor der Bezeichnung **abgenommene Musterlösung** müssen die terminalen Prüfungen des jeweiligen finalen HEAD, fachliche Reviews und die gezielte manuelle UI-/Screenreader-Abnahme dokumentiert sein. Automatische Screenshots und Axe ersetzen diese Abnahme nicht. Eine Ausnahme benötigt Owner, Ticket, begründetes Risiko und eine überprüfbare Endbedingung.
 
+## Bekannte Sicherheitsbefunde
+
+Die gemeinsame [Studio-Risikoübersicht](https://github.com/smart-village-solutions/sva-studio/blob/main/docs/architecture/11-risks-and-technical-debt.md#bekannte-sicherheitsbefunde-und-akzeptierte-ausnahmen) dokumentiert relevante öffentliche Befunde und akzeptierte Ausnahmen; für Meldewege und vertrauliche Befunde gilt die [Studio-Sicherheitsrichtlinie](https://github.com/smart-village-solutions/sva-studio/blob/main/SECURITY.md). Die befristete Audit-Ausnahme für `GHSA-fc5q-39xc-vjpf` wird gemeinsam für Studio und dieses Plugin in [#2225](https://github.com/smart-village-solutions/sva-studio/issues/2225) verfolgt. Owner sind die Plugin-Maintainer, die nächste Prüfung ist am 25. November 2026. Die Ausnahme unterdrückt einen Dependency-Befund und ist kein Nachweis für eine behobene oder produktiv ausnutzbare Schwachstelle. Entfernt wird sie nach geprüftem Update aller betroffenen Pfade und erfolgreicher Prüfung ohne Ausnahme. Der Termin löst keine automatische Erinnerung aus.
+
 ## Lokale Entwicklung
 
 Voraussetzungen: Node 24.15.0, pnpm 11.3.0 und ein sauberer, zum [Host-Pin](config/studio-compatibility.json) passender Studio-Checkout. Ein laufender Studio-Server wird erst für Integration und Browserprüfung benötigt. SDK-/UI-Peers und ihre internen Laufzeitabhängigkeiten werden als öffentliche Pakete gebaut; Studio-Quellcode wird nicht in das Plugin importiert.
